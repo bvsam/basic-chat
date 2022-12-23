@@ -1,4 +1,5 @@
 import socket
+import pickle
 
 # Set a constant for the length of the header
 HEADERSIZE = 10
@@ -10,7 +11,7 @@ s.connect((socket.gethostname(), 5000))
 
 while True:
     # Create an empty string to store the full message
-    fullMessage = ""
+    fullMessage = b""
     newMessage = True
 
     while True:
@@ -26,16 +27,20 @@ while True:
             newMessage = False
 
         # Decode the message from bytes to a string and add it to the full message
-        fullMessage += message.decode("utf-8")
+        fullMessage += message
 
         # Check to see if the full message has been received
         if len(fullMessage) - HEADERSIZE == msgLength:
             print("Full message received")
             print(fullMessage[HEADERSIZE:])
 
+            # Decode the full message from bytes to a string and print it
+            dictionary = pickle.loads(fullMessage[HEADERSIZE:])
+            print(dictionary)
+
             # Set newMessage to True to set up for the next message
             newMessage = True
             # Reset the full message
-            fullMessage = ""
+            fullMessage = b""
 
     print(fullMessage)

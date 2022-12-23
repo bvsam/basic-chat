@@ -1,5 +1,6 @@
 import socket
 import time
+import pickle
 
 # Set a constant for the length of the header
 HEADERSIZE = 10
@@ -17,14 +18,10 @@ while True:
     print(f"Connection from {address} has been established.")
 
     # Create a message with a fixed length header of HEADERSIZE containing the length of the message and the message itself
-    message = "Welcome to the server!"
-    message = f"{len(message):<{HEADERSIZE}}{message}"
+    dictionary = {1: "Hey", 2: "There"}
+    # Encode the dictionary to bytes and create the message
+    message = pickle.dumps(dictionary)
+    message = bytes(f"{len(message):<{HEADERSIZE}}", "utf-8") + message
 
     # Send the message to the client
-    clientsocket.send(bytes(message, "utf-8"))
-
-    while True:
-        time.sleep(3)
-        message = f"The time is {time.time()}"
-        message = f"{len(message):<{HEADERSIZE}}{message}"
-        clientsocket.send(bytes(message, "utf-8"))
+    clientsocket.send(message)
