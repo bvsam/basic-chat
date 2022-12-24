@@ -1,46 +1,67 @@
 import socket
-import pickle
+import select
+import errno
+import sys
 
 # Set a constant for the length of the header
-HEADERSIZE = 10
+HEADER_LENGTH = 10
+# Define the IP and PORT to connect to
+IP = "127.0.0.1"
+PORT = 5000
 
+# Get the client's username
+myUsername = input("Username: ")
 # Create a socket object for the client using IPv4 and TCP
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Connect to the server
-s.connect((socket.gethostname(), 5000))
+clientSocket.connect((IP, PORT))
+# Set the socket to non-blocking mode. This means that the socket will not wait for data to be received
+clientSocket.setblocking(False)
+
+# Create a header for the username and send it to the server
+myUsernameHeader = f"{len(myUsername):<{HEADER_LENGTH}}"
+clientSocket.send(f"{myUsernameHeader}{myUsername}".encode("utf-8"))
 
 while True:
-    # Create an empty string to store the full message
-    fullMessage = b""
-    newMessage = True
+    # Get the message from the user
+    message = input(f"{myUsername} > ")
 
-    while True:
-        # Receive a message from the server, with a buffer size of 16 bytes
-        message = s.recv(16)
+    # Check to see if the message is not empty
+    if message:
+        # Create a header for the message and send it to the server
+        messageHeader = f"{len(message):<{HEADER_LENGTH}}"
+        clientSocket.send(f"{messageHeader}{message}".encode("utf-8"))
 
-        # Check to see if the message is new
-        if newMessage:
-            # Get the length of the message from the header
-            msgLength = int(message[:HEADERSIZE])
-            print(f"New message length: {msgLength}")
-            # Set newMessage to False to indicate that the first message has been received
-            newMessage = False
+    try:
+        while True:
+            # Receive the username header of the new message from the server
+            usernameHeader = clientSocket.recv(HEADER_LENGTH)
 
-        # Decode the message from bytes to a string and add it to the full message
-        fullMessage += message
+            # Check to see if the username header is empty
+            if not len(usernameHeader):
+                print("Connection closed by the server")
+                sys.exit()
 
-        # Check to see if the full message has been received
-        if len(fullMessage) - HEADERSIZE == msgLength:
-            print("Full message received")
-            print(fullMessage[HEADERSIZE:])
+            # Get the length of the username from the header and receive the username
+            usernameLength = int(usernameHeader.decode("utf-8"))
+            username = clientSocket.recv(usernameLength).decode("utf-8")
 
-            # Decode the full message from bytes to a string and print it
-            dictionary = pickle.loads(fullMessage[HEADERSIZE:])
-            print(dictionary)
+            # Receive the message header of the new message from the server
+            messageHeader = clientSocket.recv(HEADER_LENGTH)
+            messageLength = int(messageHeader.decode("utf-8"))
+            # Receive the message from the server
+            message = clientSocket.recv(messageLength).decode("utf-8")
 
-            # Set newMessage to True to set up for the next message
-            newMessage = True
-            # Reset the full message
-            fullMessage = b""
+            # Print the message
+            print(f"{username} > {message}")
 
-    print(fullMessage)
+    except IOError as e:
+        # Check to see if the error is NOT due to no data being received. If so, print the error and exit the
+        # program. If no data was received, this will cause an error which will be caught and ignored
+        if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
+            print(f"Reading error: {str(e)}")
+            sys.exit()
+    except Exception as e:
+        # If any other error occurs, print the error and exit the program
+        print(f"General error: {e}")
+        sys.exit()
